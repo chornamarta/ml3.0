@@ -1,214 +1,190 @@
-{
-  "nbformat": 4,
-  "nbformat_minor": 0,
-  "metadata": {
-    "colab": {
-      "provenance": [],
-      "authorship_tag": "ABX9TyOpqotqSbgc6xOVPrcFOLOY"
-    },
-    "kernelspec": {
-      "name": "python3",
-      "display_name": "Python 3"
-    },
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "cells": [
-    {
-      "cell_type": "code",
-      "execution_count": 1,
-      "metadata": {
-        "id": "l8RK1zmXFZjV"
-      },
-      "outputs": [],
-      "source": [
-        "from typing import Tuple, List, Optional\n",
-        "import pandas as pd\n",
-        "import numpy as np\n",
-        "from sklearn.model_selection import train_test_split\n",
-        "from sklearn.preprocessing import StandardScaler, OneHotEncoder\n",
-        "\n",
-        "\n",
-        "def split_data(df: pd.DataFrame,target_col: str,test_size: float = 0.2,random_state: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:\n",
-        "    \"\"\"\n",
-        "    Split dataset into training and validation sets.\n",
-        "\n",
-        "    Args:\n",
-        "        df: Input DataFrame.\n",
-        "        target_col: Name of the target column.\n",
-        "        test_size: Proportion of data to use for validation.\n",
-        "        random_state: Seed for reproducibility.\n",
-        "\n",
-        "    Returns:\n",
-        "        Tuple containing:\n",
-        "            - train_inputs: Training features\n",
-        "            - val_inputs: Validation features\n",
-        "            - train_targets: Training target\n",
-        "            - val_targets: Validation target\n",
-        "    \"\"\"\n",
-        "    input_cols = [col for col in df.columns if col not in [\"id\", \"CustomerId\", \"Surname\", target_col]]\n",
-        "\n",
-        "    train_df, val_df = train_test_split(\n",
-        "        df,\n",
-        "        test_size=test_size,\n",
-        "        stratify=df[target_col],\n",
-        "        random_state=random_state\n",
-        "    )\n",
-        "\n",
-        "    train_inputs = train_df[input_cols].copy()\n",
-        "    val_inputs = val_df[input_cols].copy()\n",
-        "    train_targets = train_df[target_col].copy()\n",
-        "    val_targets = val_df[target_col].copy()\n",
-        "\n",
-        "    return train_inputs, val_inputs, train_targets, val_targets\n",
-        "\n",
-        "\n",
-        "def fit_scaler(train_inputs: pd.DataFrame, numeric_cols: List[str]) -> StandardScaler:\n",
-        "    \"\"\"\n",
-        "    Fit a StandardScaler on numeric columns.\n",
-        "\n",
-        "    Args:\n",
-        "        train_inputs: Training features.\n",
-        "        numeric_cols: List of numeric column names.\n",
-        "\n",
-        "    Returns:\n",
-        "        Fitted StandardScaler object.\n",
-        "    \"\"\"\n",
-        "    scaler = StandardScaler()\n",
-        "    scaler.fit(train_inputs[numeric_cols])\n",
-        "    return scaler\n",
-        "\n",
-        "\n",
-        "def apply_scaler(\n",
-        "    df: pd.DataFrame,\n",
-        "    numeric_cols: List[str],\n",
-        "    scaler: StandardScaler\n",
-        ") -> pd.DataFrame:\n",
-        "    \"\"\"\n",
-        "    Apply a fitted scaler to a dataset.\n",
-        "\n",
-        "    Args:\n",
-        "        df: Input DataFrame.\n",
-        "        numeric_cols: List of numeric column names.\n",
-        "        scaler: Fitted StandardScaler object.\n",
-        "\n",
-        "    Returns:\n",
-        "        DataFrame with scaled numeric columns.\n",
-        "    \"\"\"\n",
-        "    df = df.copy()\n",
-        "    df[numeric_cols] = scaler.transform(df[numeric_cols])\n",
-        "    return df\n",
-        "\n",
-        "\n",
-        "def fit_encoder(train_inputs: pd.DataFrame, categorical_cols: List[str]) -> OneHotEncoder:\n",
-        "    \"\"\"\n",
-        "    Fit a OneHotEncoder on categorical columns.\n",
-        "\n",
-        "    Args:\n",
-        "        train_inputs: Training features.\n",
-        "        categorical_cols: List of categorical column names.\n",
-        "\n",
-        "    Returns:\n",
-        "        Fitted OneHotEncoder object.\n",
-        "    \"\"\"\n",
-        "    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop='first')\n",
-        "    encoder.fit(train_inputs[categorical_cols])\n",
-        "    return encoder\n",
-        "\n",
-        "\n",
-        "def apply_encoder(\n",
-        "    df: pd.DataFrame,\n",
-        "    categorical_cols: List[str],\n",
-        "    encoder: OneHotEncoder\n",
-        ") -> pd.DataFrame:\n",
-        "    \"\"\"\n",
-        "    Apply a fitted encoder to a dataset.\n",
-        "\n",
-        "    Args:\n",
-        "        df: Input DataFrame.\n",
-        "        categorical_cols: List of categorical column names.\n",
-        "        encoder: Fitted OneHotEncoder object.\n",
-        "\n",
-        "    Returns:\n",
-        "        DataFrame with encoded categorical columns appended.\n",
-        "    \"\"\"\n",
-        "    df = df.copy()\n",
-        "    encoded = encoder.transform(df[categorical_cols])\n",
-        "    encoded_cols = list(encoder.get_feature_names_out(categorical_cols))\n",
-        "    encoded_df = pd.DataFrame(encoded, columns=encoded_cols, index=df.index)\n",
-        "    df = pd.concat([df.drop(columns=categorical_cols), encoded_df], axis=1)\n",
-        "    return df\n",
-        "\n",
-        "\n",
-        "def preprocess_data(\n",
-        "    df: pd.DataFrame,\n",
-        "    target_col: str = \"Exited\",\n",
-        "    scaler_numeric: bool = True\n",
-        ") -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, Optional[StandardScaler], OneHotEncoder]:\n",
-        "    \"\"\"\n",
-        "    Preprocess training and validation data.\n",
-        "\n",
-        "    Args:\n",
-        "        df: Input DataFrame.\n",
-        "        target_col: Name of target column.\n",
-        "        scaler_numeric: Whether to scale numeric columns.\n",
-        "\n",
-        "    Returns:\n",
-        "        Tuple containing:\n",
-        "            - train_inputs: Preprocessed training features\n",
-        "            - val_inputs: Preprocessed validation features\n",
-        "            - train_targets: Training target\n",
-        "            - val_targets: Validation target\n",
-        "            - scaler: Fitted scaler (or None if not used)\n",
-        "            - encoder: Fitted encoder\n",
-        "    \"\"\"\n",
-        "    train_inputs, val_inputs, train_targets, val_targets = split_data(df, target_col)\n",
-        "\n",
-        "    numeric_cols = train_inputs.select_dtypes(include=np.number).columns.tolist()\n",
-        "    categorical_cols = train_inputs.select_dtypes('object').columns.tolist()\n",
-        "\n",
-        "    scaler = None\n",
-        "    if scaler_numeric and numeric_cols:\n",
-        "        scaler = fit_scaler(train_inputs, numeric_cols)\n",
-        "        train_inputs = apply_scaler(train_inputs, numeric_cols, scaler)\n",
-        "        val_inputs = apply_scaler(val_inputs, numeric_cols, scaler)\n",
-        "\n",
-        "    encoder = fit_encoder(train_inputs, categorical_cols)\n",
-        "    train_inputs = apply_encoder(train_inputs, categorical_cols, encoder)\n",
-        "    val_inputs = apply_encoder(val_inputs, categorical_cols, encoder)\n",
-        "\n",
-        "    return train_inputs, val_inputs, train_targets, val_targets, scaler, encoder\n",
-        "\n",
-        "\n",
-        "def preprocess_new_data(\n",
-        "    new_data: pd.DataFrame,\n",
-        "    numeric_cols: List[str],\n",
-        "    categorical_cols: List[str],\n",
-        "    scaler: Optional[StandardScaler],\n",
-        "    encoder: OneHotEncoder\n",
-        ") -> pd.DataFrame:\n",
-        "    \"\"\"\n",
-        "    Preprocess new/unseen data using fitted scaler and encoder.\n",
-        "\n",
-        "    Args:\n",
-        "        new_data: New data to preprocess.\n",
-        "        numeric_cols: List of numeric columns.\n",
-        "        categorical_cols: List of categorical columns.\n",
-        "        scaler: Previously fitted scaler (or None if scaling not used).\n",
-        "        encoder: Previously fitted encoder.\n",
-        "\n",
-        "    Returns:\n",
-        "        Preprocessed DataFrame ready for model inference.\n",
-        "    \"\"\"\n",
-        "    df = new_data.copy()\n",
-        "\n",
-        "    if scaler is not None and numeric_cols:\n",
-        "        df = apply_scaler(df, numeric_cols, scaler)\n",
-        "\n",
-        "    df = apply_encoder(df, categorical_cols, encoder)\n",
-        "    return df\n"
-      ]
-    }
-  ]
-}
+from typing import Tuple, List, Optional
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+
+def split_data(
+    df: pd.DataFrame,
+    target_col: str,
+    test_size: float = 0.2,
+    random_state: int = 42
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    """
+    Split dataset into training and validation sets.
+
+    Args:
+        df: Input DataFrame.
+        target_col: Name of the target column.
+        test_size: Proportion of data to use for validation.
+        random_state: Seed for reproducibility.
+
+    Returns:
+        Tuple containing:
+            - train_inputs: Training features
+            - val_inputs: Validation features
+            - train_targets: Training target
+            - val_targets: Validation target
+    """
+    input_cols = [col for col in df.columns if col not in ["id", "CustomerId", "Surname", target_col]]
+
+    train_df, val_df = train_test_split(
+        df,
+        test_size=test_size,
+        stratify=df[target_col],
+        random_state=random_state
+    )
+
+    train_inputs = train_df[input_cols].copy()
+    val_inputs = val_df[input_cols].copy()
+    train_targets = train_df[target_col].copy()
+    val_targets = val_df[target_col].copy()
+
+    return train_inputs, val_inputs, train_targets, val_targets
+
+
+def fit_scaler(train_inputs: pd.DataFrame, numeric_cols: List[str]) -> StandardScaler:
+    """
+    Fit a StandardScaler on numeric columns.
+
+    Args:
+        train_inputs: Training features.
+        numeric_cols: List of numeric column names.
+
+    Returns:
+        Fitted StandardScaler object.
+    """
+    scaler = StandardScaler()
+    scaler.fit(train_inputs[numeric_cols])
+    return scaler
+
+
+def apply_scaler(
+    df: pd.DataFrame,
+    numeric_cols: List[str],
+    scaler: StandardScaler
+) -> pd.DataFrame:
+    """
+    Apply a fitted scaler to a dataset.
+
+    Args:
+        df: Input DataFrame.
+        numeric_cols: List of numeric column names.
+        scaler: Fitted StandardScaler object.
+
+    Returns:
+        DataFrame with scaled numeric columns.
+    """
+    df = df.copy()
+    df[numeric_cols] = scaler.transform(df[numeric_cols])
+    return df
+
+
+def fit_encoder(train_inputs: pd.DataFrame, categorical_cols: List[str]) -> OneHotEncoder:
+    """
+    Fit a OneHotEncoder on categorical columns.
+
+    Args:
+        train_inputs: Training features.
+        categorical_cols: List of categorical column names.
+
+    Returns:
+        Fitted OneHotEncoder object.
+    """
+    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop='first')
+    encoder.fit(train_inputs[categorical_cols])
+    return encoder
+
+
+def apply_encoder(
+    df: pd.DataFrame,
+    categorical_cols: List[str],
+    encoder: OneHotEncoder
+) -> pd.DataFrame:
+    """
+    Apply a fitted encoder to a dataset.
+
+    Args:
+        df: Input DataFrame.
+        categorical_cols: List of categorical column names.
+        encoder: Fitted OneHotEncoder object.
+
+    Returns:
+        DataFrame with encoded categorical columns appended.
+    """
+    df = df.copy()
+    encoded = encoder.transform(df[categorical_cols])
+    encoded_cols = list(encoder.get_feature_names_out(categorical_cols))
+    encoded_df = pd.DataFrame(encoded, columns=encoded_cols, index=df.index)
+    df = pd.concat([df.drop(columns=categorical_cols), encoded_df], axis=1)
+    return df
+
+
+def preprocess_data(
+    df: pd.DataFrame,
+    target_col: str = "Exited",
+    scaler_numeric: bool = True
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, Optional[StandardScaler], OneHotEncoder]:
+    """
+    Preprocess training and validation data.
+
+    Args:
+        df: Input DataFrame.
+        target_col: Name of target column.
+        scaler_numeric: Whether to scale numeric columns.
+
+    Returns:
+        Tuple containing:
+            - train_inputs: Preprocessed training features
+            - val_inputs: Preprocessed validation features
+            - train_targets: Training target
+            - val_targets: Validation target
+            - scaler: Fitted scaler (or None if not used)
+            - encoder: Fitted encoder
+    """
+    train_inputs, val_inputs, train_targets, val_targets = split_data(df, target_col)
+
+    numeric_cols = train_inputs.select_dtypes(include=np.number).columns.tolist()
+    categorical_cols = train_inputs.select_dtypes('object').columns.tolist()
+
+    scaler = None
+    if scaler_numeric and numeric_cols:
+        scaler = fit_scaler(train_inputs, numeric_cols)
+        train_inputs = apply_scaler(train_inputs, numeric_cols, scaler)
+        val_inputs = apply_scaler(val_inputs, numeric_cols, scaler)
+
+    encoder = fit_encoder(train_inputs, categorical_cols)
+    train_inputs = apply_encoder(train_inputs, categorical_cols, encoder)
+    val_inputs = apply_encoder(val_inputs, categorical_cols, encoder)
+
+    return train_inputs, val_inputs, train_targets, val_targets, scaler, encoder
+
+
+def preprocess_new_data(
+    new_data: pd.DataFrame,
+    numeric_cols: List[str],
+    categorical_cols: List[str],
+    scaler: Optional[StandardScaler],
+    encoder: OneHotEncoder
+) -> pd.DataFrame:
+    """
+    Preprocess new/unseen data using fitted scaler and encoder.
+
+    Args:
+        new_data: New data to preprocess.
+        numeric_cols: List of numeric columns.
+        categorical_cols: List of categorical columns.
+        scaler: Previously fitted scaler (or None if scaling not used).
+        encoder: Previously fitted encoder.
+
+    Returns:
+        Preprocessed DataFrame ready for model inference.
+    """
+    df = new_data.copy()
+
+    if scaler is not None and numeric_cols:
+        df = apply_scaler(df, numeric_cols, scaler)
+
+    df = apply_encoder(df, categorical_cols, encoder)
+    return df
