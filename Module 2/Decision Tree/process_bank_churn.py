@@ -97,23 +97,21 @@ def preprocess_new_data(
 ) -> pd.DataFrame:
     """
     Preprocess new/unseen data using fitted scaler and encoder.
-    Automatically detects numeric/categorical columns based on stored training columns.
-
-    Args:
-        new_data: New data to preprocess.
-        scaler: Previously fitted scaler (or None if scaling not used).
-        encoder: Previously fitted encoder.
-
-    Returns:
-        Preprocessed DataFrame ready for inference.
+    Drops irrelevant columns automatically based on training.
     """
     df = new_data.copy()
 
-    # Apply scaling using stored numeric columns
+    # Keep only columns used during training
+    expected_numeric = scaler.feature_names_in_ if scaler is not None else []
+    expected_categorical = encoder.feature_names_in_
+    expected_cols = list(expected_numeric) + list(expected_categorical)
+    df = df[expected_cols]
+
+    # Scale numeric columns
     if scaler is not None:
         df = apply_scaler(df, scaler)
 
-    # Apply encoding using stored categorical columns
+    # Encode categorical columns
     df = apply_encoder(df, encoder)
 
     return df
